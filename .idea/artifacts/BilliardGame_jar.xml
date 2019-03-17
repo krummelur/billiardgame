@@ -1,0 +1,14 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="BilliardGame:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/BilliardGame_jar</output-path>
+    <root id="archive" name="BilliardGame.jar">
+      <element id="module-output" name="BilliardGame" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/lib/JOCL-0.2.0RC.jar" path-in-jar="/" />
+      <element id="file-copy" path="$PROJECT_DIR$/CLRenderer.ocl" />
+      <element id="file-copy" path="$PROJECT_DIR$/lib/JOCL_0_2_0-windows-x86.dll" />
+      <element id="file-copy" path="$PROJECT_DIR$/lib/JOCL_0_2_0-windows-x86_64.dll" />
+      <element id="file-copy" path="$PROJECT_DIR$/lib/libJOCL_0_2_0-linux-x86_64.so" />
+      <element id="file-copy" path="$PROJECT_DIR$/lib/License.txt" />
+    </root>
+  </artifact>
+</component>

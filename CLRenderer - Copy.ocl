@@ -1,0 +1,174 @@
+__kernel void sampleKernel(__global const float *world, __global int *output, __global int *c) {
+    
+	//World data
+	int sp_posx = 0;
+	int sp_posy = 1;
+	int sp_posz = 2;
+	int sp_rad 	= 3;
+	int sp_r	= 4;
+	int sp_g	= 5;
+	int sp_b	= 6;
+	sphereSize 	= 7;
+	lightSize 	= 7;
+	
+	int li_posx = 0;
+	int li_posy = 1;
+	int li_posz = 2;
+	int li_str 	= 3;
+	int li_r	= 4;
+	int li_g	= 5;
+	int li_b	= 6;
+		
+	int offsetSpheres = (int)world[0];
+	int numSpheres = (int)world[1];
+	int offsetLights = (int)world[2];
+	int numLights = (int)world[3];
+	uint cameraOffset = (int)world[4];
+	
+	//Screen data
+	int screenWidth = 100;
+	int screenHeight = 100;
+	
+	
+	int pixelX = gid%screenWidth;
+	int pixely = gid/screenWidth;
+	
+	//Other data
+	float OrthoSize = 3;
+	
+	
+	//Render
+                double reflectivityFactor = 0.6;
+                Ray cameraRay;
+                Vector3 surfaceColor;
+                Pair<Vector3, Ray> results;
+
+                    //calculate if the ray hit any object, and at what distance
+					float3 cameraPosition = (float3)(world[cameraOffset], world[cameraOffset + 1], world[cameraOffset + 2]);
+					float3 cameraDirection = (float3)(world[cameraOffset+3], world[cameraOffset + 4], world[cameraOffset + 5]);
+					float3 cameraLookPlaneUP = (float3)(world[cameraOffset+6], world[cameraOffset + 7], world[cameraOffset + 8]);
+					float3 cameraLookPlaneRIGHT = (float3)(world[cameraOffset+9], world[cameraOffset + 10], world[cameraOffset + 11]);
+                    
+					float3 rayPosition = cameraPosition + 
+										(cameraLookPlaneUP *	orthogonalSize * (0.5f -((float)pixelY/screenHeight))) +
+										(cameraLookPlaneRIGHT *	orthogonalSize * (0.5f -((float)pixelX/screenWidth)));
+										
+					float3 rayDrection = cameraDirection;
+					
+					getColor(rayPosition, rayDitrection);
+}
+
+float3 distanceSquared(float3 object, float3 other) {
+	float3 delta = object-other;
+	float edge1Sqrd = (delta.y * delta.y) + (delta.z * delta.z);
+	return (delta.x * delta.x) + edge1Sqrd;
+}
+
+float3 getColor(float3 rayPosition, float3 rayDirection) {
+	float maxVal =  100000;
+	float closestHit = maxVal;
+	int closestSphere = -1;
+	float epsilon = 0.000001f;
+		    
+	//Check for hit with each sphere
+	for(int index = 0; index < numSpheres; index++) {	
+		float3 spherePosition = (float3)(	world[offsetSpheres + index*sphereSize + sp_posx],
+											world[offsetSpheres + index*sphereSize + sp_posy],
+											world[offsetSpheres + index*sphereSize + sp_posz]);
+			
+		float rayToSphereSquared = distanceSquared(rayPosition, spherePosition);
+
+		float travelDistanceClosestPoint = dot(rayDirection, spherePosition - (rayDirection));
+		if(!(travelDistanceClosestPoint < 0)) {
+			float minDistanceRaySphereSquared = rayToSphereSquared - (travelDistanceClosestPoint*travelDistanceClosestPoint);
+		//if minDistanceRaySquared is < 0, that means that the closest distance is farther than the radius, meaning the ray missed
+			if (!(minDistanceRaySphereSquared < -epsilon)) {		
+				float halfDistanceInsideSphere = sqrt(world[offsetSpheres + index*sphereSize + sp_rad]*world[offsetSpheres + index*sphereSize + sp_rad] - minDistanceRaySphereSquared);
+				closestHit = travelDistanceClosestPoint - halfDistanceInsideSphere < closestHit ? travelDistanceClosestPoint - halfDistanceInsideSphere : closestHit;
+				closestSphere = travelDistanceClosestPoint - halfDistanceInsideSphere < closestHit ? index : closestObject;
+			}
+		}
+	}
+		
+	//if there was a hit calculate lighing
+	if (closestHit != maxVal) {
+		for (int index = 0; index < numLights; index++) {
+		float3 lightPosition = (float3)(	world[offsetLights + index * lightSize + li_posx],
+											world[offsetLights + index * lightSize + li_posy],
+											world[offsetLights + index * lightSize + li_posz]);
+			//first check if there is something obstruction the light ray               
+			//Travel the ray
+			float3 hitLocation = float3(rayPosition.x + rayDirection.x*closestHit, 
+										rayPosition.y + rayDirection.y*closestHit, 
+										rayPosition.z + rayDirection.z*closestHit);
+											
+			//Check if shadowed from light
+				
+			int lightShadowed = 0;
+			float lightToSurfaceDistance = distance(lightPosition, hitLocation);
+			for(int index_s = 0; index_s < numSpheres; index_s++) {
+				float3 spherePosition = (float3)(	world[offsetSpheres + index*sphereSize + sp_posx],
+											world[offsetSpheres + index*sphereSize + sp_posy],
+											world[offsetSpheres + index*sphereSize + sp_posz]);
+		
+				float rayToSphereSquared = distanceSquared(rayPosition, spherePosition);
+				float travelDistanceClosestPoint = dot(rayDirection, spherePosition - (rayDirection));
+				if(!(travelDistanceClosestPoint < 0)) {
+					float minDistanceRaySphereSquared = rayToSphereSquared - (travelDistanceClosestPoint*travelDistanceClosestPoint);
+					//if minDistanceRaySquared is < 0, that means that the closest distance is farther than the radius, meaning the ray missed
+					if (!(minDistanceRaySphereSquared < -epsilon)) {		
+						float halfDistanceInsideSphere = sqrt(world[offsetSpheres + index*sphereSize + sp_rad]*world[offsetSpheres + index*sphereSize + sp_rad] - minDistanceRaySphereSquared);
+						lightShadowed |= (travelDistanceClosestPoint - halfDistanceInsideSphere) < lightToSurfaceDistance - epsilon;
+					}
+				}
+			}
+
+			float3 surfaceNormal = 
+				(hitLocation																- 
+				(float3)(	world[offsetSpheres + closestSphere*sphereSize + sp_posx],
+							world[offsetSpheres + closestSphere*sphereSize + sp_posy],
+							world[offsetSpheres + closestSphere*sphereSize + sp_posz]))	/
+				world[offsetSpheres + closestSphere*sphereSize + sp_rad];
+							
+				
+			//surfaceColor = surfaceColor.add(closestObject.color.multiply(ambientColorStrength));
+			if (!lightShadowed) {
+				//start with diffuse light
+				float3 lightToSurfaceNormal = normalize(hitlocation - lightPosition);
+		
+				float dot = -1 * dot(surfaceNormal, lightToSurfaceNormal);
+				if (dot > 0) {
+					surfaceColor = surfaceColor + (
+					//l.color
+					(float3)(	world[offsetLights + index * lightSize + li_r],
+								world[offsetLights + index * lightSize + li_g],
+								world[offsetLights + index * lightSize + li_b])*
+					(world[offsetLights + index * lightSize + li_str] * 10 / distance(hitLocation, lightPosition)) * 
+					dot * 
+					(float3)(	world[offsetSpheres + closestSphere*sphereSize + sp_r],
+								world[offsetSpheres + closestSphere*sphereSize + sp_g],
+								world[offsetSpheres + closestSphere*sphereSize + sp_b]));
+
+					//add specular light
+					float3 surfaceToCameraDir = normalize(hitLocameraPosition - cameraPosition);
+					//Vector3 surfaceToCameraDir = hitLocation.subtract(cameraRay.origin).normalize();
+					float3 reflectionDirection = normalize(lightToSurfaceNormal - (surfaceNormal*dot(lightToSurfaceNormal)*2))
+						
+					//REFLECT: normalize(lightToSurfaceNormal - (surfaceNormal*dot(lightToSurfaceNormal)*2))
+						
+					float specular = -1 * dot(surfaceToCameraDir, reflectionDirection);
+					//double specular = -1 * surfaceToCameraDir.dot(reflectionDirection);
+					if (specular > 0) {
+						specular = pow(specular, 70);
+						clamp(surfaceColor = surfaceColor + (float3)(specular, specular, specular) * 
+						world[offsetLights + index * lightSize + li_str], 0, 1);
+						
+						//returnRay = new Ray(hitLocation, cameraRay.direction.reflect(surfaceNormal));
+						//returnRay.origin=returnRay.travel(0.01);
+					}						
+				}
+				output[gid] = ((int)surfaceColor.x<<16+(int)surfaceColor.y<<8+(int)surfaceColor.z)
+			}
+		}
+	}
+}
