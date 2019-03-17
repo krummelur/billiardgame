@@ -4,8 +4,8 @@ import org.krummelur.raytracer.Vector3;
 
 import java.util.ArrayList;
 
-//Takes care of checcking the balls collision, applying force to them.
-// the balls use this to calculate their trajectory, the balls also take care of adding friction on their own.
+//Takes care of checking the balls collision, applying force to them.
+// the balls use this to calculate their trajectory, the balls take care of adding friction on their own.
 public class PhysicsManager {
     ArrayList<BilliardBall> balls = new ArrayList<>();
 
@@ -18,7 +18,7 @@ public class PhysicsManager {
     }
 
     void update() {
-        //in order to accidentally recheck a ball that is not moving at the start of the update function, but have gained momentum duiring the method,
+        //in order to not accidentally recheck a ball that is not moving at the start of the update function, but has gained momentum during the method,
         //first make a list of moving balls
         ArrayList<BilliardBall> movingBalls = new ArrayList<>();
         for(BilliardBall b : balls) {
